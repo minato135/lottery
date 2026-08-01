@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0b10" />
+  <title>1/99.9 完全確率くじ</title>
+  <style>
+    :root {
+      --bg: #0b0b10;
+      --card: #15151d;
+      --card2: #1d1d27;
+      --text: #f7f7fb;
+      --sub: #a9a9b7;
+      --accent: #d7ff3f;
+      --danger: #ff5f73;
+      --line: rgba(255,255,255,.09);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: max(20px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+      overflow-x: hidden;
+    }
+
+    .app {
+      width: min(100%, 430px);
+    }
+
+    .eyebrow {
+      text-align: center;
+      color: var(--sub);
+      font-size: 13px;
+      letter-spacing: .16em;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      text-align: center;
+      font-size: clamp(30px, 9vw, 44px);
+      line-height: 1;
+      letter-spacing: -.04em;
+    }
+
+    .prob {
+      text-align: center;
+      margin: 14px 0 24px;
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--card2), var(--card));
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.38);
+    }
+
+    .result {
+      min-height: 150px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 10px;
+    }
+
+    .icon {
+      font-size: 52px;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    .message {
+      font-size: 25px;
+      font-weight: 800;
+      margin: 0;
+    }
+
+    .detail {
+      color: var(--sub);
+      font-size: 14px;
+      margin: 8px 0 0;
+    }
+
+    .draw-button {
+      width: 100%;
+      border: 0;
+      border-radius: 20px;
+      padding: 19px 22px;
+      background: var(--accent);
+      color: #101108;
+      font-size: 20px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(215,255,63,.18);
+      transition: transform .12s ease, opacity .12s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .draw-button:active { transform: scale(.98); }
+    .draw-button:disabled { opacity: .6; cursor: default; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.025);
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .stat-label {
+      color: var(--sub);
+      font-size: 12px;
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: center;
+      margin-top: 16px;
+    }
+
+    .reset {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--sub);
+      font-size: 13px;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 8px;
+    }
+
+    .win {
+      animation: winPulse .8s ease;
+    }
+
+    .lose {
+      animation: shake .28s ease;
+    }
+
+    .flash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      background: radial-gradient(circle at center, rgba(215,255,63,.45), transparent 55%);
+    }
+
+    .flash.show {
+      animation: flash .8s ease;
+    }
+
+    @keyframes winPulse {
+      0% { transform: scale(.8); opacity: 0; }
+      60% { transform: scale(1.08); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      30% { transform: translateX(-5px); }
+      70% { transform: translateX(5px); }
+    }
+
+    @keyframes flash {
+      0% { opacity: 0; }
+      25% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .small-note {
+      text-align: center;
+      color: var(--sub);
+      font-size: 12px;
+      line-height: 1.5;
+      margin-top: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="flash" id="flash"></div>
+
+  <main class="app">
+    <div class="eyebrow">完全独立抽選</div>
+    <h1>1 / 99.9</h1>
+    <div class="prob">当選確率 約1.001%</div>
+
+    <section class="card">
+      <div class="result" id="result">
+        <div>
+          <div class="icon" id="icon">🎯</div>
+          <p class="message" id="message">くじを引いてみよう</p>
+          <p class="detail" id="detail">毎回、当たりやすさは変わりません</p>
+        </div>
+      </div>
+
+      <button class="draw-button" id="drawButton">くじを引く</button>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">総抽選回数</div>
+          <div class="stat-value" id="total">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">当たり回数</div>
+          <div class="stat-value" id="wins">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">連続ハズレ</div>
+          <div class="stat-value" id="streak">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">最大連続ハズレ</div>
+          <div class="stat-value" id="maxStreak">0</div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <button class="reset" id="resetButton">記録をリセット</button>
+      </div>
+    </section>
+
+    <p class="small-note">
+      抽選は毎回独立です。何回外れても、次の1回の当選確率は常に1/99.9です。
+    </p>
+  </main>
+
+  <script>
+    const WIN_PROBABILITY = 1 / 99.9;
+
+    const saved = JSON.parse(localStorage.getItem("lotteryStats") || "{}");
+    let stats = {
+      total: Number(saved.total) || 0,
+      wins: Number(saved.wins) || 0,
+      streak: Number(saved.streak) || 0,
+      maxStreak: Number(saved.maxStreak) || 0
+    };
+
+    const totalEl = document.getElementById("total");
+    const winsEl = document.getElementById("wins");
+    const streakEl = document.getElementById("streak");
+    const maxStreakEl = document.getElementById("maxStreak");
+    const resultEl = document.getElementById("result");
+    const iconEl = document.getElementById("icon");
+    const messageEl = document.getElementById("message");
+    const detailEl = document.getElementById("detail");
+    const drawButton = document.getElementById("drawButton");
+    const resetButton = document.getElementById("resetButton");
+    const flash = document.getElementById("flash");
+
+    function save() {
+      localStorage.setItem("lotteryStats", JSON.stringify(stats));
+    }
+
+    function renderStats() {
+      totalEl.textContent = stats.total.toLocaleString("ja-JP");
+      winsEl.textContent = stats.wins.toLocaleString("ja-JP");
+      streakEl.textContent = stats.streak.toLocaleString("ja-JP");
+      maxStreakEl.textContent = stats.maxStreak.toLocaleString("ja-JP");
+    }
+
+    function setResult(isWin) {
+      resultEl.classList.remove("win", "lose");
+      void resultEl.offsetWidth;
+
+      if (isWin) {
+        resultEl.classList.add("win");
+        flash.classList.remove("show");
+        void flash.offsetWidth;
+        flash.classList.add("show");
+        iconEl.textContent = "🎉";
+        messageEl.textContent = "大当たり！";
+        detailEl.textContent = `${stats.total.toLocaleString("ja-JP")}回目で当選しました`;
+        if (navigator.vibrate) navigator.vibrate([80, 60, 120]);
+      } else {
+        resultEl.classList.add("lose");
+        iconEl.textContent = "✕";
+        messageEl.textContent = "ハズレ";
+        detailEl.textContent = `現在 ${stats.streak.toLocaleString("ja-JP")}連続ハズレ`;
+        if (navigator.vibrate) navigator.vibrate(35);
+      }
+    }
+
+    function drawLottery() {
+      drawButton.disabled = true;
+      messageEl.textContent = "抽選中…";
+      detailEl.textContent = "";
+      iconEl.textContent = "···";
+
+      setTimeout(() => {
+        const isWin = Math.random() < WIN_PROBABILITY;
+
+        stats.total += 1;
+
+        if (isWin) {
+          stats.wins += 1;
+          stats.streak = 0;
+        } else {
+          stats.streak += 1;
+          stats.maxStreak = Math.max(stats.maxStreak, stats.streak);
+        }
+
+        save();
+        renderStats();
+        setResult(isWin);
+        drawButton.textContent = "もう一度引く";
+        drawButton.disabled = false;
+      }, 650);
+    }
+
+    function resetStats() {
+      const ok = confirm("抽選記録をすべてリセットしますか？");
+      if (!ok) return;
+
+      stats = { total: 0, wins: 0, streak: 0, maxStreak: 0 };
+      save();
+      renderStats();
+
+      resultEl.classList.remove("win", "lose");
+      iconEl.textContent = "🎯";
+      messageEl.textContent = "くじを引いてみよう";
+      detailEl.textContent = "毎回、当たりやすさは変わりません";
+      drawButton.textContent = "くじを引く";
+    }
+
+    drawButton.addEventListener("click", drawLottery);
+    resetButton.addEventListener("click", resetStats);
+
+    renderStats();
+  </script>
+</body>
+</html>
